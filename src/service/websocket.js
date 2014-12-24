@@ -23,6 +23,15 @@ angular.module('ui.websocket')
   .provider('webSocket', function () {
     var visibilityTimeout = 20000;
     var maxConnectionAttempts = 5;
+
+    var getTopicNameFunc = function(message) {
+      return message.topic;
+    };
+
+    var getTopicData = function(message, topic) {
+      return message.data;
+    };
+
     var connectionAttemptInterval = 2000;
     var webSocketURL;
     var explicitConnect;
@@ -54,7 +63,7 @@ angular.module('ui.websocket')
 
           // Check if this close was requested
           if (!closeRequested) {
-             
+
             // Check connectionAttempts count
             if (connectionAttempts < maxConnectionAttempts) {
               // Try to re-establish connection
@@ -100,21 +109,22 @@ angular.module('ui.websocket')
 
           var message = JSON.parse(event.data);
 
-          var topic = message.topic;
+          var topic = getTopicNameFunc(message);
 
           if (topicMap.hasOwnProperty(topic)) {
+            var data = getTopicData(message, topic);
             if ($window.WS_DEBUG) {
               if ($window.WS_DEBUG === true) {
-                $log.debug('WebSocket ', topic, ' => ', message.data);
+                $log.debug('WebSocket ', topic, ' => ', data);
               }
               else {
                 var search = new RegExp($window.WS_DEBUG + '');
                 if (search.test(topic)) {
-                  $log.debug('WebSocket ', topic, ' => ', message.data);
+                  $log.debug('WebSocket ', topic, ' => ', data);
                 }
               }
             }
-            topicMap[topic].fire(message.data);
+            topicMap[topic].fire(data);
           }
         };
 
@@ -158,7 +168,7 @@ angular.module('ui.websocket')
             var callbacks = topicMap[topic];
 
             // If a jQuery.Callbacks object has not been created for this
-            // topic, one should be created and a "subscribe" message 
+            // topic, one should be created and a "subscribe" message
             // should be sent.
             if (!callbacks) {
 
@@ -206,14 +216,14 @@ angular.module('ui.websocket')
               // if there are no more handlers
               // registered in this callbacks collection.
               if (!callbacks.has()) {
-                
+
                 // Send the unsubscribe message first
                 var message = { type: 'unsubscribe', topic: topic };
                 this.send(message);
 
                 // Then remove the callbacks object for this topic
                 delete topicMap[topic];
-                
+
               }
             }
           },
@@ -284,6 +294,29 @@ angular.module('ui.websocket')
 
       setConnectionAttemptInterval: function(interval) {
         maxConnectionAttempts = interval;
+      },
+
+      /**
+       * To make this class reusable with other web socket publishers, I've changed the way onmessage() method find
+       * the topic from message data.
+       * Previously, it was:
+       * <code>
+       *     var topic = message.topic;
+       * </code>
+       *
+       * Now, it is:
+       * <code>
+       *     var topic = getTopicNameFunc(message);
+       * </code>
+       *
+       * @param topicNameFunc a function
+       */
+      setTopicNameFunc: function(topicNameFunc) {
+        getTopicNameFunc = topicNameFunc;
+      },
+
+      setTopicDataFunc: function(topicDataFunc) {
+        getTopicData = topicDataFunc;
       }
     };
   });
